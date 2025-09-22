@@ -787,13 +787,12 @@ class FiscalDocumentLineMixinMethods(models.AbstractModel):
         for line in self:
             # this test and the onchange are required to avoid
             # resetting manual changes in fiscal_price
-            if not line.fiscal_price:
-                if line.product_id and line.price_unit:
-                    line.fiscal_price = line.price_unit / (
-                        line.product_id.uot_factor or 1.0
-                    )
-                else:
-                    line.fiscal_price = line.price_unit
+            if line.product_id and line.price_unit:
+                line.fiscal_price = line.price_unit / (
+                    line.product_id.uot_factor or 1.0
+                )
+            else:
+                line.fiscal_price = line.price_unit
 
     @api.onchange("quantity")
     def _onchange_quantity_fiscal(self):
@@ -805,13 +804,12 @@ class FiscalDocumentLineMixinMethods(models.AbstractModel):
         for line in self:
             # this test and the onchange are required to avoid
             # resetting manual changes in fiscal_quantity
-            if not line.fiscal_quantity:
-                if line.product_id and line.quantity:
-                    line.fiscal_quantity = line.quantity * (
-                        line.product_id.uot_factor or 1.0
-                    )
-                else:
-                    line.fiscal_quantity = line.quantity
+            if line.product_id and line.quantity:
+                line.fiscal_quantity = line.quantity * (
+                    line.product_id.uot_factor or 1.0
+                )
+            else:
+                line.fiscal_quantity = line.quantity
 
     @api.onchange("city_taxation_code_id")
     def _onchange_city_taxation_code_id(self):
