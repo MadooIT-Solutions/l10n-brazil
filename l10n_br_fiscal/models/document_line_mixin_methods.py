@@ -171,11 +171,11 @@ class FiscalDocumentLineMixinMethods(models.AbstractModel):
             # Total value of products or services
             record.price_gross = round_curr.round(record.price_unit * record.quantity)
             record.amount_fiscal = record.price_gross - record.discount_value
-            record.fiscal_amount_tax = record.amount_tax_not_included
+            record.amount_tax = record.amount_tax_not_included
 
             add_to_amount = sum(record[a] for a in record._add_fields_to_amount())
             rm_to_amount = sum(record[r] for r in record._rm_fields_to_amount())
-            record.fiscal_amount_untaxed = (
+            record.amount_untaxed = (
                 record.price_gross
                 - record.discount_value
                 + add_to_amount
@@ -183,17 +183,13 @@ class FiscalDocumentLineMixinMethods(models.AbstractModel):
             )
 
             # Valor do documento (NF)
-            record.fiscal_amount_total = (
-                record.fiscal_amount_untaxed + record.fiscal_amount_tax
-            )
+            record.amount_total = record.amount_untaxed + record.amount_tax
 
             # Valor Liquido (TOTAL + IMPOSTOS - RETENÇÕES)
-            record.amount_taxed = (
-                record.fiscal_amount_total - record.amount_tax_withholding
-            )
+            record.amount_taxed = record.amount_total - record.amount_tax_withholding
 
             # Valor do documento (NF) - RETENÇÕES
-            record.fiscal_amount_total = record.amount_taxed
+            record.amount_total = record.amount_taxed
 
             # Valor financeiro
             if (
@@ -309,15 +305,10 @@ class FiscalDocumentLineMixinMethods(models.AbstractModel):
                 for tax in mapping_result["taxes"].values():
                     taxes |= tax
                 line.fiscal_tax_ids = taxes
+                line.comment_ids = line.fiscal_operation_line_id.comment_ids
+
             else:
                 line.fiscal_tax_ids = [Command.clear()]
-
-    @api.depends("fiscal_operation_line_id")
-    def _compute_comment_ids(self):
-        for line in self:
-            line.comment_ids = [
-                Command.set(line.fiscal_operation_line_id.comment_ids.ids)
-            ]
 
     @api.model
     def _build_null_mask_dict(self) -> dict:
@@ -779,7 +770,6 @@ class FiscalDocumentLineMixinMethods(models.AbstractModel):
 
     @api.onchange("price_unit")
     def _onchange_price_unit_fiscal(self):
-        self.fiscal_price = 0
         self._compute_fiscal_price()
 
     @api.depends("price_unit")
@@ -787,31 +777,27 @@ class FiscalDocumentLineMixinMethods(models.AbstractModel):
         for line in self:
             # this test and the onchange are required to avoid
             # resetting manual changes in fiscal_price
-            if not line.fiscal_price:
-                if line.product_id and line.price_unit:
-                    line.fiscal_price = line.price_unit / (
-                        line.product_id.uot_factor or 1.0
-                    )
-                else:
-                    line.fiscal_price = line.price_unit
+            if line.product_id and line.price_unit:
+                line.fiscal_price = line.price_unit / (
+                    line.product_id.uot_factor or 1.0
+                )
+            else:
+                line.fiscal_price = line.price_unit
 
     @api.onchange("quantity")
     def _onchange_quantity_fiscal(self):
-        self.fiscal_quantity = 0
         self._compute_fiscal_quantity()
 
     @api.depends("quantity")
     def _compute_fiscal_quantity(self):
         for line in self:
-            # this test and the onchange are required to avoid
-            # resetting manual changes in fiscal_quantity
-            if not line.fiscal_quantity:
-                if line.product_id and line.quantity:
-                    line.fiscal_quantity = line.quantity * (
-                        line.product_id.uot_factor or 1.0
-                    )
-                else:
-                    line.fiscal_quantity = line.quantity
+    
+            if line.product_id and line.quantity:
+                line.fiscal_quantity = line.quantity * (
+                    line.product_id.uot_factor or 1.0
+                )
+            else:
+                line.fiscal_quantity = line.quantity
 
     @api.onchange("city_taxation_code_id")
     def _onchange_city_taxation_code_id(self):
